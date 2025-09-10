@@ -164,21 +164,6 @@ class InvestigationFramework:
             print(f"Error running identity verification: {e}")
             return {'success': False, 'error': str(e)}
     
-    def run_additional_tools(self, email, evidence_file):
-        """Run any additional investigation tools"""
-        additional_results = {}
-        
-        # Placeholder for additional tools like:
-        # - Certificate transparency log searches
-        # - OSINT gathering tools  
-        # - Domain reputation checks
-        # - Social media investigation
-        # - Historical WHOIS analysis
-        
-        print("Additional tools placeholder - add custom investigation modules here")
-        
-        return additional_results
-    
     def run_analysis(self, evidence_file):
         """Run analysis on forensics results"""
         if not Path(evidence_file).exists():
@@ -272,136 +257,89 @@ class InvestigationFramework:
             },
             'investigation_results': results,
             'summary': {
-                'total_tools_run': len([r for r in results.values() if r.get('success')]),
-                'failed_tools': len([r for r in results.values() if not r.get('success')]),
-                'evidence_files_generated': [r.get('evidence_file') for r in results.values() if r.get('evidence_file')],
-                'analysis_files_generated': [r.get('analysis_file') for r in results.values() if r.get('analysis_file')]
+                'total_tools_run': len([r for r in results if r['success']]),
+                'total_errors': len([r for r in results if not r['success']]),
+                'total_time': str(timestamp - datetime.now())
             }
         }
         
-        # Save comprehensive report
         report_file = self.output_dir / f"comprehensive_report_{email.replace('@', '_at_')}_{timestamp.strftime('%Y%m%d_%H%M%S')}.json"
-        
         with open(report_file, 'w') as f:
-            json.dump(report, f, indent=2)
+            json.dump(report, f, indent=4)
         
-        print(f"\nComprehensive report saved to: {report_file}")
-        
-        return report_file
+        print(f"Report generated at: {report_file}")
     
     def run_full_investigation(self, email):
-        """Run complete investigation workflow"""
-        print(f"\n{'='*80}")
-        print(f"STARTING COMPREHENSIVE MDM INVESTIGATION")
-        print(f"Target: {email}")
-        print(f"Time: {datetime.now()}")
-        print(f"{'='*80}")
+        """Run full investigation, combining all steps"""
+        results = []
         
-        if not self.validate_environment():
-            print("Environment validation failed. Cannot proceed.")
-            return False
-        
-        results = {}
-        
-        # Step 1: Primary forensics investigation
-        print(f"\nStep 1: Primary MDM Forensics Investigation")
-        print(f"-" * 50)
+        # Primary investigation
         primary_result = self.run_primary_investigation(email)
-        results['primary_investigation'] = primary_result
+        results.append(primary_result)
         
-        if not primary_result.get('success'):
-            print("Primary investigation failed. Stopping workflow.")
+        if not primary_result.get('success', False):
+            print("Investigation failed at the primary forensics step.")
             return False
         
-        evidence_file = primary_result.get('evidence_file')
-        if not evidence_file:
-            print("No evidence file generated. Cannot proceed with analysis.")
+        # Identity verification
+        identity_result = self.run_identity_verification(primary_result.get('evidence_file'))
+        results.append(identity_result)
+        
+        if not identity_result.get('success', False):
+            print("Investigation failed during identity verification.")
             return False
         
-        # Step 2: Analysis of results
-        print(f"\nStep 2: Results Analysis")
-        print(f"-" * 50)
-        analysis_result = self.run_analysis(evidence_file)
-        results['analysis'] = analysis_result
+        # Run JSON analysis
+        analysis_result = self.run_analysis(primary_result.get('evidence_file'))
+        results.append(analysis_result)
         
-        # Step 3: Timeline investigation
-        print(f"\nStep 3: Timeline Investigation")
-        print(f"-" * 50)
-        timeline_result = self.run_timeline_investigation(evidence_file)
-        results['timeline_investigation'] = timeline_result
+        if not analysis_result.get('success', False):
+            print("Investigation failed during analysis.")
+            return False
         
-        # Step 4: Identity verification and OSINT
-        print(f"\nStep 4: Identity Verification & OSINT Investigation")
-        print(f"-" * 50)
-        verification_result = self.run_identity_verification(evidence_file)
-        results['identity_verification'] = verification_result
+        # Timeline investigation
+        timeline_result = self.run_timeline_investigation(primary_result.get('evidence_file'))
+        results.append(timeline_result)
         
-        # Step 5: Additional tools (if any)
-        print(f"\nStep 5: Additional Investigation Tools")
-        print(f"-" * 50)
-        additional_results = self.run_additional_tools(email, evidence_file)
-        results['additional_tools'] = additional_results
+        if not timeline_result.get('success', False):
+            print("Investigation failed during timeline analysis.")
+            return False
         
-        # Step 6: Generate comprehensive report
-        print(f"\nStep 6: Comprehensive Report Generation")Step 5: Comprehensive Report Generation")
-        print(f"-" * 50)
-        report_file = self.generate_comprehensive_report(email, results)
+        # Generate comprehensive report
+        self.generate_comprehensive_report(email, results)
         
-        print(f"\n{'='*80}")
-        print(f"INVESTIGATION COMPLETE")
-        print(f"{'='*80}")
-        print(f"Evidence file: {evidence_file}")
-        if analysis_result.get('success'):
-            print(f"Analysis file: {analysis_result.get('analysis_file')}")
-        if timeline_result.get('success'):
-            print(f"Timeline file: {timeline_result.get('timeline_file')}")
-        if verification_result.get('success'):
-            print(f"Verification file: {verification_result.get('verification_file')}")
-        print(f"Comprehensive report: {report_file}")
-        print(f"\nAll files saved to: {self.output_dir}")
-        
+        print("Investigation completed successfully")
         return True
 
 
 def create_sample_config():
     """Create a sample configuration file"""
-    config = {
-        "description": "MDM Investigation Framework Configuration",
-        "tools": {
-            "mdm_forensics": {
-                "script": "notsofast.py",
-                "required": True,
-                "description": "Primary MDM endpoint enumeration and forensics",
-                "timeout": 1800
+    sample_config = {
+        'tools': {
+            'mdm_forensics': {
+                'script': 'notsofast.py',
+                'required': True
             },
-            "json_analyzer": {
-                "script": "json_analyzer.py",
-                "required": True, 
-                "description": "JSON results analysis and risk assessment",
-                "timeout": 300
+            'json_analyzer': {
+                'script': 'json_analyzer.py',
+                'required': True
             },
-            "cert_transparency": {
-                "script": "cert_transparency_check.py",
-                "required": False,
-                "description": "Certificate transparency log analysis"
+            'timeline_investigator': {
+                'script': 'timeline_investigator.py',
+                'required': True
             },
-            "domain_reputation": {
-                "script": "identity_verification_module.py", 
-                "required": False,
-                "description": "Domain reputation and threat intelligence"
+            'identity_verification': {
+                'script': 'identity_verification_module.py',
+                'required': True
             }
-        },
-        "output_settings": {
-            "save_evidence": True,
-            "generate_reports": True,
-            "cleanup_temp_files": False
         }
     }
     
-    with open('investigation_config.json', 'w') as f:
-        json.dump(config, f, indent=2)
+    config_file = Path(__file__).parent / 'sample_config.json'
+    with open(config_file, 'w') as f:
+        json.dump(sample_config, f, indent=4)
     
-    print("Sample configuration file created: investigation_config.json")
+    print(f"Sample configuration file created at: {config_file}")
 
 
 def main():
@@ -409,16 +347,20 @@ def main():
     parser.add_argument('email', help='Target email address to investigate')
     parser.add_argument('--config', help='Configuration file for investigation tools')
     parser.add_argument('--create-config', action='store_true', help='Create sample configuration file')
-    
+
     args = parser.parse_args()
-    
+
     if args.create_config:
         create_sample_config()
         return
-    
+
     framework = InvestigationFramework(args.config)
-    success = framework.run_full_investigation(args.email)
     
+    # Validate environment before starting investigation
+    if not framework.validate_environment():
+        sys.exit(1)
+
+    success = framework.run_full_investigation(args.email)
     sys.exit(0 if success else 1)
 
 
