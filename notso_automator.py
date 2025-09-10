@@ -36,6 +36,11 @@ class InvestigationFramework:
                 'script': 'timeline_investigator.py',
                 'required': True,
                 'description': 'Enrollment timeline and temporal analysis'
+            },
+            'identity_verification': {
+                'script': 'identity_verification_module.py',
+                'required': True,
+                'description': 'Identity verification and OSINT investigation'
             }
         }
         
@@ -119,6 +124,61 @@ class InvestigationFramework:
             print(f"Error running primary investigation: {e}")
             return {'success': False, 'error': str(e)}
     
+    def run_identity_verification(self, evidence_file):
+        """Run identity verification and OSINT investigation"""
+        if not Path(evidence_file).exists():
+            print(f"Error: Evidence file not found: {evidence_file}")
+            return {'success': False, 'error': 'Evidence file not found'}
+        
+        print(f"Running identity verification on: {evidence_file}")
+        
+        # Generate verification report
+        verification_file = Path(evidence_file).with_suffix('.verification.json')
+        
+        verification_script = self.base_dir / self.tools['identity_verification']['script']
+        cmd = [sys.executable, str(verification_script), evidence_file, '--save-verification', str(verification_file)]
+        
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=900)  # 15 min timeout
+            
+            if result.returncode == 0:
+                print("Identity verification completed successfully")
+                return {
+                    'success': True,
+                    'verification_file': str(verification_file),
+                    'stdout': result.stdout,
+                    'stderr': result.stderr
+                }
+            else:
+                print(f"Identity verification failed with code: {result.returncode}")
+                print(f"Error output: {result.stderr}")
+                return {
+                    'success': False,
+                    'error': result.stderr
+                }
+        
+        except subprocess.TimeoutExpired:
+            print("Identity verification timed out after 15 minutes")
+            return {'success': False, 'error': 'Identity verification timed out'}
+        except Exception as e:
+            print(f"Error running identity verification: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def run_additional_tools(self, email, evidence_file):
+        """Run any additional investigation tools"""
+        additional_results = {}
+        
+        # Placeholder for additional tools like:
+        # - Certificate transparency log searches
+        # - OSINT gathering tools  
+        # - Domain reputation checks
+        # - Social media investigation
+        # - Historical WHOIS analysis
+        
+        print("Additional tools placeholder - add custom investigation modules here")
+        
+        return additional_results
+    
     def run_analysis(self, evidence_file):
         """Run analysis on forensics results"""
         if not Path(evidence_file).exists():
@@ -159,20 +219,45 @@ class InvestigationFramework:
             print(f"Error running analysis: {e}")
             return {'success': False, 'error': str(e)}
     
-    def run_additional_tools(self, email, evidence_file):
-        """Run any additional investigation tools"""
-        additional_results = {}
+    def run_timeline_investigation(self, evidence_file):
+        """Run timeline investigation on forensics results"""
+        if not Path(evidence_file).exists():
+            print(f"Error: Evidence file not found: {evidence_file}")
+            return {'success': False, 'error': 'Evidence file not found'}
         
-        # Example: Run additional tools here
-        # This is where you'd add calls to other scripts like:
-        # - Certificate transparency log searches
-        # - OSINT gathering tools  
-        # - Domain reputation checks
-        # - etc.
+        print(f"Running timeline investigation on: {evidence_file}")
         
-        print("Additional tools placeholder - add custom investigation modules here")
+        # Generate timeline report
+        timeline_file = Path(evidence_file).with_suffix('.timeline.json')
         
-        return additional_results
+        timeline_script = self.base_dir / self.tools['timeline_investigator']['script']
+        cmd = [sys.executable, str(timeline_script), evidence_file, '--save-timeline', str(timeline_file)]
+        
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)  # 10 min timeout
+            
+            if result.returncode == 0:
+                print("Timeline investigation completed successfully")
+                return {
+                    'success': True,
+                    'timeline_file': str(timeline_file),
+                    'stdout': result.stdout,
+                    'stderr': result.stderr
+                }
+            else:
+                print(f"Timeline investigation failed with code: {result.returncode}")
+                print(f"Error output: {result.stderr}")
+                return {
+                    'success': False,
+                    'error': result.stderr
+                }
+        
+        except subprocess.TimeoutExpired:
+            print("Timeline investigation timed out after 10 minutes")
+            return {'success': False, 'error': 'Timeline investigation timed out'}
+        except Exception as e:
+            print(f"Error running timeline investigation: {e}")
+            return {'success': False, 'error': str(e)}
     
     def generate_comprehensive_report(self, email, results):
         """Generate a comprehensive investigation report"""
@@ -239,14 +324,26 @@ class InvestigationFramework:
         analysis_result = self.run_analysis(evidence_file)
         results['analysis'] = analysis_result
         
-        # Step 3: Additional tools (if any)
-        print(f"\nStep 3: Additional Investigation Tools")
+        # Step 3: Timeline investigation
+        print(f"\nStep 3: Timeline Investigation")
+        print(f"-" * 50)
+        timeline_result = self.run_timeline_investigation(evidence_file)
+        results['timeline_investigation'] = timeline_result
+        
+        # Step 4: Identity verification and OSINT
+        print(f"\nStep 4: Identity Verification & OSINT Investigation")
+        print(f"-" * 50)
+        verification_result = self.run_identity_verification(evidence_file)
+        results['identity_verification'] = verification_result
+        
+        # Step 5: Additional tools (if any)
+        print(f"\nStep 5: Additional Investigation Tools")
         print(f"-" * 50)
         additional_results = self.run_additional_tools(email, evidence_file)
         results['additional_tools'] = additional_results
         
-        # Step 4: Generate comprehensive report
-        print(f"\nStep 4: Comprehensive Report Generation")
+        # Step 6: Generate comprehensive report
+        print(f"\nStep 6: Comprehensive Report Generation")Step 5: Comprehensive Report Generation")
         print(f"-" * 50)
         report_file = self.generate_comprehensive_report(email, results)
         
@@ -256,6 +353,10 @@ class InvestigationFramework:
         print(f"Evidence file: {evidence_file}")
         if analysis_result.get('success'):
             print(f"Analysis file: {analysis_result.get('analysis_file')}")
+        if timeline_result.get('success'):
+            print(f"Timeline file: {timeline_result.get('timeline_file')}")
+        if verification_result.get('success'):
+            print(f"Verification file: {verification_result.get('verification_file')}")
         print(f"Comprehensive report: {report_file}")
         print(f"\nAll files saved to: {self.output_dir}")
         
