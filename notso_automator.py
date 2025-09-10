@@ -386,7 +386,7 @@ def create_sample_config():
                 "description": "Certificate transparency log analysis"
             },
             "domain_reputation": {
-                "script": "domain_reputation_check.py", 
+                "script": "identity_verification_module.py", 
                 "required": False,
                 "description": "Domain reputation and threat intelligence"
             }
